@@ -1,7 +1,7 @@
 import configparser
 from datetime import datetime
 import os
-from types import List, String
+from typing import List
 
 import pandas as pd
 from pyspark.sql import SparkSession
@@ -26,7 +26,17 @@ def SAS2date(date: int) -> datetime:
 SAS2date_udf = udf(SAS2date, DateType())
 
 
-def rename_columns(table, new_columns: List[String]):
+def rename_columns(table, new_columns: List[str]):
+    """
+    Renames the columns of a given spark DataFrame
+
+    Args:
+        table (spark.DataFrame): Table to change columns from
+        new_columns (List[String]): New names for table's columns
+
+    Returns:
+        spark.DataFrame: Table with new column names
+    """
     for original, new in zip(table.columns, new_columns):
         table = table.withColumnRenamed(original, new)
     return table
@@ -43,7 +53,7 @@ def process_i94_data(spark: SparkSession, input_data: str,
         input_data (str): s3 bucket where data is read from
         output_data (str): s3 bucket where data is written to
     """
-    label_file = os.path.join(input_data + "I94_SAS_Labels_Descriptions.SAS")
+    label_file = os.path.join(input_data, "I94_SAS_Labels_Descriptions.SAS")
     with open(label_file) as f:
         labels = f.readlines()
 
@@ -56,11 +66,11 @@ def process_i94_data(spark: SparkSession, input_data: str,
                                        ['code', 'country'])
 
     filename = os.path.join(
-        input_data + 'immigration/18-83510-I94-Data-2016/*.sas7bdat')
+        input_data, 'immigration/18-83510-I94-Data-2016/*.sas7bdat')
     df = pd.read_sas(filename, 'sas7bdat', encoding="ISO-8859-1")
 
     # fact_traveler table
-    fact_traveler = df.select('cicid', 'state_code', 'i94port', 'i94bir',
+    fact_traveler = df.select('cicid', 'i94addr', 'i94port', 'i94bir',
                               'count').distinct()
 
     fact_cols = ['cic_id', 'state_code', 'iata_code', 'age', 'count']
@@ -70,25 +80,33 @@ def process_i94_data(spark: SparkSession, input_data: str,
         .parquet(path=output_data + 'fact_traveler')
 
     # dim_traveler table
-    dim_traveler = df.select('cicid', 'arrdate', 'depdate', 'year',
-                             'month', 'i94cit', 'i94res', 'i94visa',
+    dim_traveler = df.select('cicid', 'arrdate', 'depdate', 'i94yr',
+                             'i94mon', 'i94cit', 'i94res', 'i94visa',
                              'biryear', 'gender', 'visatype').distinct()
 
+    dim_traveler = dim_traveler.withColumn('i94cit',
+                                           dim_traveler['i94cit'].cast(IntegerType()))
+    dim_traveler = dim_traveler.withColumn('i94res',
+                                           dim_traveler['i94res'].cast(IntegerType()))
+
     dim_traveler = dim_traveler.join(
-        country_df, dim_traveler.i94cit == country.code, 'left')
+        country_df, on=dim_traveler.i94cit == country_df.code, how='left')
 
     dim_traveler = dim_traveler.withColumnRenamed('country', 'citizenship')
 
     dim_traveler = dim_traveler.join(
-        country_df, dim_traveler.i94res == country.code, 'left')
-
+        country_df, on=dim_traveler.i94res == country_df.code, how="left")
     dim_traveler = dim_traveler.withColumnRenamed('country', 'residence')
     dim_traveler = dim_traveler.withColumnRenamed('i94visa', 'reason')
 
-    dim_traveler = dim_traveler.select('cicid', 'arrdate', 'depdate', 'year',
-                                       'month', 'citizenship', 'residence',
+    dim_traveler = dim_traveler.select('cicid', 'arrdate', 'depdate', 'i94yr',
+                                       'i94mon', 'citizenship', 'residence',
                                        'reason', 'biryear', 'gender',
                                        'visatype')
+
+    dim_cols = ['cicid', 'arrdate', 'depdate', 'year', 'month', 'citizenship',
+                'residence', 'reason', 'biryear', 'gender', 'visatype']
+    dim_traveler = rename_columns(dim_traveler, dim_cols)
 
     dim_traveler.write.mode("overwrite")\
         .parquet(path=output_data + 'dim_traveler')
@@ -107,7 +125,7 @@ def process_demography_data(spark: SparkSession, input_data: str,
     """
 
     demog_data = os.path.join(
-        input_data + 'demography/us-cities-demographics.csv')
+        input_data, 'demography/us-cities-demographics.csv')
     df = spark.read.format('csv').options(
         header=True, delimiter=';').load(demog_data)
 
@@ -136,12 +154,12 @@ def process_airport_data(spark: SparkSession, input_data: str,
     """
 
     demog_data = os.path.join(
-        input_data + 'airports/airport-codes_csv.csv')
+        input_data, 'airports/airport-codes_csv.csv')
     df = spark.read.format('csv').options(
-        header=True, delimiter=';').load(demog_data)
+        header=True, delimiter=',').load(demog_data)
 
     dim_airports = df.select(['iata_code', 'type', 'name', 'elevation_ft',
-                              'continent', 'iso_country', 'iso_region'
+                              'continent', 'iso_country', 'iso_region',
                               'municipality', 'coordinates']).distinct()
 
     dim_airports.write.mode("overwrite")\
