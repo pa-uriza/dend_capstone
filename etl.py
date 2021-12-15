@@ -6,7 +6,7 @@ from typing import List
 import pandas as pd
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import udf
-from pyspark.sql.types import DateType
+from pyspark.sql.types import DateType, IntegerType
 
 
 def SAS2date(date: int) -> datetime:
@@ -73,7 +73,7 @@ def process_i94_data(spark: SparkSession, input_data: str,
     fact_traveler = df.select('cicid', 'i94addr', 'i94port', 'i94bir',
                               'count').distinct()
 
-    fact_cols = ['cic_id', 'state_code', 'iata_code', 'age', 'count']
+    fact_cols = ['cicid', 'state_code', 'iata_code', 'age', 'count']
     fact_traveler = rename_columns(fact_traveler, fact_cols)
 
     fact_traveler.write.mode("overwrite").partitionBy('state_code')\
@@ -84,10 +84,14 @@ def process_i94_data(spark: SparkSession, input_data: str,
                              'i94mon', 'i94cit', 'i94res', 'i94visa',
                              'biryear', 'gender', 'visatype').distinct()
 
-    dim_traveler = dim_traveler.withColumn('i94cit',
-                                           dim_traveler['i94cit'].cast(IntegerType()))
-    dim_traveler = dim_traveler.withColumn('i94res',
-                                           dim_traveler['i94res'].cast(IntegerType()))
+    dim_traveler = dim_traveler.withColumn(
+        'i94cit',
+        dim_traveler['i94cit'].cast(IntegerType())
+    )
+    dim_traveler = dim_traveler.withColumn(
+        'i94res',
+        dim_traveler['i94res'].cast(IntegerType())
+    )
 
     dim_traveler = dim_traveler.join(
         country_df, on=dim_traveler.i94cit == country_df.code, how='left')

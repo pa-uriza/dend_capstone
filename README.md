@@ -8,7 +8,7 @@ The aim of this project is to implement the desing and construction of a data wa
 ### Step 1: Scope the Project and Gather Data
 
 #### 1.1 Scope 
-In this project three data sources are joined to get a better understanding of immigration process. The datasets used will be I94 Immigration Data, U.S. City Demographic Data, and Airport Code Table.
+In this project, three data sources are joined to understand the immigration process better. The datasets used will be I94 Immigration Data, U.S. City Demographics Data, and Airport Code Table. The Department of Homeland Security (DHS) issues the I94 form to all persons in the U.S. except citizens to control the entrance to the country and for security-related reasons. Therefore, being able to assess and understand the characteristics and analyze the immigration process would benefit the DHS and other organizations. Joining information from the DHS and airports information could enhance the analysis and help the understanding of who travels to the U.S. and which are the most important airports for immigration. Additionally, comparing this with demographic data would allow us to analyze the statistics of the population and how they could affect immigration patterns.
 
 Some of the tools used for this project are AWS S3 (for data storage) and pandas and pyspark (for data exploration and processing).
 
@@ -24,7 +24,8 @@ Following are the data sources used for this project:
 
 ### Step 2: Explore and Assess the Data
 
-#### 2.1 Explore the Data 
+#### 2.1 Explore the Data
+
 Refer to [CapstoneProject.ipynb](CapstoneProject.ipynb)
 
 #### 2.2 Cleaning Steps
@@ -168,3 +169,7 @@ python qa.py
 * Implement a Datawarehouse/datalakehouse technology to improve data reading.
 * Implement data import into the datawarehouse using DBT.
 * Include an orchestrator (e.g. Airflow) to run the pipeline based on new available data.
+
+### Step 6: ETL result demo
+
+Refer to [CapstoneProject.ipynb](CapstoneProject.ipynb)
